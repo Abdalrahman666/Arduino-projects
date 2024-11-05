@@ -3,7 +3,7 @@
 // How many leds in your strip?
 #define NUM_LEDS 256
 
-#define DATA_PIN 13
+#define DATA_PIN 12
 
 //Define the array of leds
 CRGB leds[NUM_LEDS];
