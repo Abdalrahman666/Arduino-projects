@@ -1,3 +1,5 @@
+//this is the code for an esp32 to interface with ws2812 LED matrix display
+
 #include <Adafruit_GFX.h>
 #include <Adafruit_NeoMatrix.h>
 #include <Adafruit_NeoPixel.h>
@@ -7,39 +9,46 @@
 #include <BLE2902.h>
 
 #ifndef PSTR
-#define PSTR
+#define PSTR // Macro to store strings in flash memory (PROGMEM) instead of SRAM
 #endif
 
-#define PIN 12
+#define PIN 12 //pin connected to data_in to the LED matrix display
 
+//here the width and height of the display is not a variable since a change in the display would also require changing the other paramters anyways
 Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(32, 8, PIN,
                                                NEO_MATRIX_BOTTOM + NEO_MATRIX_RIGHT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 
 String msg = "";
-
+string defaultMessage = "Welcome";
+int defaultBrightness = 40;
 int x_pos = matrix.width();
 int y_size = matrix.height();
 int msg_length = msg.length();
 int x_size = matrix.width();
-int pass = 0;
-String received = "";
-bool hasRun = false;
-int duration = 70;
+int pass = 0; //was used in initial version for making a color cycle
+String received = ""; //recieved user input in bluetooth
+bool hasRun = false; //this was used for test purposes of the initial message
+int duration = 70; //this controls the speed of the scrolling text
 uint16_t textColor = matrix.Color(0, 0, 255);  // Default color: blue
-bool multiColor = false;
+bool multiColor = false; //to control multicolor mode
 
+// declaring pointer variable to BLE objects
 BLEServer* pServer = NULL;
 BLECharacteristic* pCharacteristicTX = NULL;
 BLECharacteristic* pCharacteristicRX = NULL;
+
+// control connectivety of the client
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
-bool displayOn = true;
-uint32_t value = 0;
+bool displayOn = true; //to control screen on/off mode
+uint32_t value = 0; //this is used for testing notify sent value by incrementing every 3 milliseconds
 
+//Universally Unique Identifier is a 128-bit value used to uniquely identify services, characteristics, and descriptors within the BLE protocol
 #define SERVICE_UUID "8cdd366e-7eb4-442d-973f-61e2fd4b56f0"
 #define CHARACTERISTIC_UUID_RX "dc994613-74f5-4c4f-b671-5a8d297f737a"
 #define CHARACTERISTIC_UUID_TX "cc5e8e3a-f8e6-4889-8a18-9069272be2a5"
 
+//declaring a class named MyServerCallbacks that inherits from the BLEServerCallbacks class
 class MyServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer* pServer) {
     deviceConnected = true;
@@ -50,9 +59,9 @@ class MyServerCallbacks : public BLEServerCallbacks {
   }
 };
 
-
+//function to display the current status of the screen and send it to user
 void sendDisplayStatus() {
-  // Extract RGB values from textColor
+  // Extract RGB values from textColor by bit shifting and bit-wise masking
   uint8_t red = (textColor >> 11) & 0x1F;
   uint8_t green = (textColor >> 5) & 0x3F;
   uint8_t blue = textColor & 0x1F;
@@ -67,20 +76,22 @@ void sendDisplayStatus() {
   Serial.println("Sending status:");
   Serial.println(status);
 
-  // Convert the status string to a C-style string
+  // Convert the status string to a C-style string (an array of each letter) which is required by the setvalue method to use
   const char* statusCharArray = status.c_str();
 
   // Set the value and notify
   pCharacteristicTX->setValue((uint8_t*)statusCharArray, strlen(statusCharArray));
   pCharacteristicTX->notify();
 }
+
+// declaring MyCallbacks class to handle use characteritic written input
 class MyCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* pCharacteristic) {
     std::string rxValue = pCharacteristic->getValue();
     if (rxValue.length() > 0) {
       Serial.println("===start=receive===");
       Serial.println("Received value: " + String(rxValue.c_str()));
-      received = String(rxValue.c_str());
+      received = String(rxValue.c_str()); //storing the recieved value from user
     }
     // Check if the received value is a speed command
     if (received.startsWith("speed:")) {
@@ -114,7 +125,7 @@ class MyCallbacks : public BLECharacteristicCallbacks {
       multiColor = false;
       Serial.println("Multicolor text disabled");
     }
-    // Check if the received value is "off" or "on"
+    // Check if the received value is "off" , "on" or "reset"
     else if (received == "off") {
       displayOn = false;
       matrix.fillScreen(0);  // Turn off all LEDs
@@ -126,7 +137,7 @@ class MyCallbacks : public BLECharacteristicCallbacks {
     } else if (received == "reset") {
       ESP.restart();
     } else {
-      msg = String(rxValue.c_str());
+      msg = String(rxValue.c_str()); //anything else is considered message not command
       x_pos = matrix.width();
     }
     // Send notification with current display status
@@ -134,7 +145,7 @@ class MyCallbacks : public BLECharacteristicCallbacks {
   }
 };
 
-// Color definitions
+// Color definitions for testing purposes
 #define BLACK 0x0000
 #define BLUE 0x001F
 #define RED 0xF800
@@ -144,15 +155,14 @@ class MyCallbacks : public BLECharacteristicCallbacks {
 #define YELLOW 0xFFE0
 #define WHITE 0xFFFF
 
-// arrays holding color config data for scrolling text and for graphics drawings
-const uint16_t textColors[] = { matrix.Color(255, 0, 0), matrix.Color(0, 255, 0), matrix.Color(0, 0, 255), matrix.Color(255, 255, 0), matrix.Color(137, 112, 219) };
+// arrays holding color config data for scrolling text and for graphics drawings testing
+const uint16_t textColors[] = { matrix.Color(255, 0, 0), matrix.Color(0, 255, 0), matrix.Color(0, 0, 255), matrix.Color(255, 140, 0), matrix.Color(128, 0, 128) };
 const uint16_t drawingColors[] = { GREEN, BLUE, CYAN, WHITE, RED, YELLOW, MAGENTA };
 
 void setup() {
   Serial.begin(115200);
 
-  // Create the BLE Device
-  BLEDevice::init("ESP32");
+  BLEDevice::init("COE_ADMIN");   // Create the BLE Device
   BLEDevice::setMTU(517);  // Set MTU size to 517 bytes
 
   // Create the BLE Server
@@ -166,10 +176,11 @@ void setup() {
   pCharacteristicTX = pService->createCharacteristic(
     CHARACTERISTIC_UUID_TX,
     BLECharacteristic::PROPERTY_NOTIFY);
-  BLE2902* pBLE2902;
-  pBLE2902 = new BLE2902();
-  pBLE2902->setNotifications(true);
-  pCharacteristicTX->addDescriptor(new BLE2902());
+
+  BLE2902* pBLE2902 = new BLE2902(); //creating new BLE descriptor used for notifications
+  pBLE2902->setNotifications(true); //enabling  notififcations
+  pCharacteristicTX->addDescriptor(pBLE2902); //adding the descriptor to a characterstic
+
 
   // Create a BLE Characteristic for RX
   pCharacteristicRX = pService->createCharacteristic(
@@ -186,17 +197,17 @@ void setup() {
   BLEDevice::startAdvertising();
   Serial.println("Waiting a client connection to notify...");
   // Request MTU size
-  pServer->getAdvertising()->setMinPreferred(0x06);  
+  pServer->getAdvertising()->setMinPreferred(0x06);  // 6 times 1.25ms advertising data rate interval
 
   matrix.begin();
   matrix.setTextWrap(false);
-  matrix.setBrightness(40);
+  matrix.setBrightness(defaultBrightness); //default brightness
   matrix.setTextColor(textColors[0]);
   Serial.println("NeoMatrix pixel grid test");
   Serial.println((String) "Matrix Pixel Width x Height: " + x_size + " x " + y_size);
 
   // Display startup message
-  msg = "Welcome";
+  msg = defaultMessage;
   drawBars();
 }
 
@@ -238,10 +249,11 @@ void displayMessage(String message, int duration) {
   } else if (msg == "Available" || msg == "available") {
     matrix.setTextColor(GREEN);
   } else {
-    matrix.setTextColor(textColor);
+    matrix.setTextColor(textColor); //this overrides the setTextColor in thee setup
   }
   matrix.print(msg);
 
+  //scrolling of all text
   // if(--x_pos < -(msg_length * 6)) {
   //   x_pos = matrix.width();
 
@@ -270,7 +282,7 @@ void displayMessage(String message, int duration) {
   delay(duration);
 }
 
-
+// tesing all pixels
 void testPixels() {
   int rnd;
   matrix.fillScreen(0);
@@ -284,6 +296,7 @@ void testPixels() {
   }
 }
 
+//animation in beginning
 void drawBars() {
   int rnd;
   for (int i = 0; i < 10; i++) {
