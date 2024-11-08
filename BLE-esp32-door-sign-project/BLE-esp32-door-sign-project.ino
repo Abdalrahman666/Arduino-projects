@@ -16,6 +16,7 @@
 Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(32, 8, PIN,
                                                NEO_MATRIX_BOTTOM + NEO_MATRIX_RIGHT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 
+const uint32_t passkey = 123456; // password for user
 String msg = "";
 string defaultMessage = "Welcome";
 int defaultBrightness = 40;
@@ -162,6 +163,13 @@ void setup() {
 
   BLEDevice::init("COE_ADMIN");   // Create the BLE Device
   BLEDevice::setMTU(517);  // Set MTU size to 517 bytes
+
+  // BLE security
+  BLESecurity *pSecurity = new BLESecurity();
+  pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_MITM_BOND); //MITM authentication mode for bonding and protectino from 3rd party
+  pSecurity->setCapability(ESP_IO_CAP_IO); //sets input capability of the pin
+  pSecurity->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK); //to ensure encyrption
+  pSecurity->setStaticPIN(passkey); // Set static passkey
 
   // Create the BLE Server
   pServer = BLEDevice::createServer();
