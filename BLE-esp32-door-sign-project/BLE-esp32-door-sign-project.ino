@@ -1,5 +1,3 @@
-//this is the code for an esp32 to interface with ws2812 LED matrix display
-
 #include <Adafruit_GFX.h>
 #include <Adafruit_NeoMatrix.h>
 #include <Adafruit_NeoPixel.h>
