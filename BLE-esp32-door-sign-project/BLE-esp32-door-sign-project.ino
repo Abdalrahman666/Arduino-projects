@@ -14,7 +14,10 @@
 
 //here the width and height of the display is not a variable since a change in the display would also require changing the other paramters anyways
 Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(32, 8, PIN,
-                                               NEO_MATRIX_BOTTOM + NEO_MATRIX_RIGHT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
+                                               NEO_MATRIX_BOTTOM +
+                                               NEO_MATRIX_RIGHT +
+                                               NEO_MATRIX_COLUMNS + 
+                                               NEO_MATRIX_ZIGZAG);
 
 const uint32_t passkey = 123456; // password for user
 String msg = "";
